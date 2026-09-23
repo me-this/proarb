@@ -47,7 +47,7 @@ USE_STATE_OVERRIDE_SIM = _bool("USE_STATE_OVERRIDE_SIM", True)
 # ---------------------------------------------------------------------------
 TOKENS = {
     "WBNB": os.getenv("WBNB_ADDRESS", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095"),
-    "MOOLAH": os.getenv("MOOLAH_ADDRESS", ""),  # <-- fill in real address
+    "MOOLAH": os.getenv("MOOLAH_ADDRESS", "0xbAb528425Edb1E0E36D3719bc3307d9C8ccE8888"),
     "USDT": os.getenv("USDT_ADDRESS", "0x55d398326f99059fF775485246999027B3197955"),
 }
 
@@ -67,22 +67,22 @@ PATH = [
         "name": "WBNB/Moolah V3",
         "token_in": "WBNB",
         "token_out": "MOOLAH",
-        "pool": os.getenv("POOL_WBNB_MOOLAH", ""),  # <-- fill in
-        "fee": int(os.getenv("FEE_WBNB_MOOLAH", "2500")),
+        "pool": os.getenv("POOL_WBNB_MOOLAH", "0x0459f493Ae6cE91953012097Ce24f7C851A697C9"),
+        "fee": int(os.getenv("FEE_WBNB_MOOLAH", "2500")),  # 0.25% tier
     },
     {
         "name": "Moolah/USDT V3",
         "token_in": "MOOLAH",
         "token_out": "USDT",
-        "pool": os.getenv("POOL_MOOLAH_USDT", ""),  # <-- fill in
-        "fee": int(os.getenv("FEE_MOOLAH_USDT", "2500")),
+        "pool": os.getenv("POOL_MOOLAH_USDT", "0x1b0c9c9C77D7E596610A9537f4eED95EA5A5999A"),
+        "fee": int(os.getenv("FEE_MOOLAH_USDT", "10000")),  # 1% tier
     },
     {
         "name": "USDT/WBNB V3",
         "token_in": "USDT",
         "token_out": "WBNB",
-        "pool": os.getenv("POOL_USDT_WBNB", ""),  # <-- fill in
-        "fee": int(os.getenv("FEE_USDT_WBNB", "500")),
+        "pool": os.getenv("POOL_USDT_WBNB", "0x36696169C63e42cd08ce11f5deeBbCeBae652050"),
+        "fee": int(os.getenv("FEE_USDT_WBNB", "500")),  # 0.05% tier
     },
 ]
 
