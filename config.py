@@ -67,20 +67,31 @@ PATH = [
         "name": "WBNB/Moolah V3",
         "token_in": "WBNB",
         "token_out": "MOOLAH",
+        "dex_version": "v3",
         "pool": os.getenv("POOL_WBNB_MOOLAH", "0x0459f493Ae6cE91953012097Ce24f7C851A697C9"),
         "fee": int(os.getenv("FEE_WBNB_MOOLAH", "2500")),  # 0.25% tier
     },
     {
-        "name": "Moolah/USDT V3",
+        # The V3 Moolah/USDT pool (fee 10000) is a near-empty duplicate
+        # (~$1.5K liquidity) that reverts on almost any probe size. The
+        # real liquidity for this pair (~$148K) sits in a PancakeSwap V2
+        # pool instead, so this hop routes there via the V2 Router's
+        # getAmountsOut instead of the V3 Quoter. "pool" and "fee" are
+        # informational only for a v2 hop -- the V2 router resolves the
+        # pair itself and PancakeSwap V2's fee is a fixed 0.25%, not
+        # configurable per pool.
+        "name": "Moolah/USDT V2",
         "token_in": "MOOLAH",
         "token_out": "USDT",
-        "pool": os.getenv("POOL_MOOLAH_USDT", "0x1b0c9c9C77D7E596610A9537f4eED95EA5A5999A"),
-        "fee": int(os.getenv("FEE_MOOLAH_USDT", "10000")),  # 1% tier
+        "dex_version": "v2",
+        "pool": os.getenv("POOL_MOOLAH_USDT_V2", "0x6F06f821231e021950f6cBC49716f95b623D536f"),
+        "fee": None,
     },
     {
         "name": "USDT/WBNB V3",
         "token_in": "USDT",
         "token_out": "WBNB",
+        "dex_version": "v3",
         "pool": os.getenv("POOL_USDT_WBNB", "0x36696169C63e42cd08ce11f5deeBbCeBae652050"),
         "fee": int(os.getenv("FEE_USDT_WBNB", "500")),  # 0.05% tier
     },
@@ -91,6 +102,9 @@ PATH = [
 # different V3-style fork.
 QUOTER_ADDRESS = os.getenv("QUOTER_ADDRESS", "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997")
 ROUTER_ADDRESS = os.getenv("ROUTER_ADDRESS", "0x1b81D678ffb9C0263b24A97847620C99d213eB14")
+
+# PancakeSwap V2 Router, used for any PATH hop with "dex_version": "v2".
+ROUTER_V2_ADDRESS = os.getenv("ROUTER_V2_ADDRESS", "0x10ED43C718714eb63d5aA57B78B54704E256024E")
 
 # ---------------------------------------------------------------------------
 # Sizing & economics

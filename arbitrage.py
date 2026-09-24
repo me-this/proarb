@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 import config
-from dex import get_quote, get_gas_price_wei, QuoteError
+from dex import get_quote, get_quote_v2, get_gas_price_wei, QuoteError
 
 
 @dataclass
@@ -29,7 +29,8 @@ class HopResult:
     name: str
     token_in: str
     token_out: str
-    fee: int
+    fee: Optional[int]
+    dex_version: str
     amount_in: int   # wei
     amount_out: int  # wei
 
@@ -84,17 +85,23 @@ def evaluate_opportunity(trade_size_wbnb: Optional[float] = None) -> Opportunity
                     f"({step['token_in']} -> {step['token_out']}); check config.py / .env"
                 )
             if not step["pool"]:
-                # The quoter routes by token pair + fee tier, not by pool
-                # address directly, but we still require it configured so
-                # you've confirmed the exact pool you intend to hit.
+                # The V3 quoter routes by token pair + fee tier, not by
+                # pool address directly, and the V2 router resolves the
+                # pair itself -- but we still require an address configured
+                # so you've confirmed the exact pool you intend to hit.
                 raise QuoteError(f"Missing pool address for hop {step['name']}; check config.py / .env")
 
-            amount_out = get_quote(token_in_addr, token_out_addr, step["fee"], current_amount)
+            dex_version = step.get("dex_version", "v3")
+            if dex_version == "v2":
+                amount_out = get_quote_v2(token_in_addr, token_out_addr, current_amount)
+            else:
+                amount_out = get_quote(token_in_addr, token_out_addr, step["fee"], current_amount)
             hops.append(HopResult(
                 name=step["name"],
                 token_in=step["token_in"],
                 token_out=step["token_out"],
                 fee=step["fee"],
+                dex_version=dex_version,
                 amount_in=current_amount,
                 amount_out=amount_out,
             ))

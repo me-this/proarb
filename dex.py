@@ -13,7 +13,7 @@ from web3 import Web3
 from web3.exceptions import ContractLogicError
 
 import config
-from abis import QUOTER_V2_ABI, ERC20_ABI
+from abis import QUOTER_V2_ABI, ERC20_ABI, ROUTER_V2_ABI
 
 
 @lru_cache(maxsize=1)
@@ -28,6 +28,12 @@ def get_web3() -> Web3:
 def get_quoter():
     w3 = get_web3()
     return w3.eth.contract(address=Web3.to_checksum_address(config.QUOTER_ADDRESS), abi=QUOTER_V2_ABI)
+
+
+@lru_cache(maxsize=1)
+def get_router_v2():
+    w3 = get_web3()
+    return w3.eth.contract(address=Web3.to_checksum_address(config.ROUTER_V2_ADDRESS), abi=ROUTER_V2_ABI)
 
 
 @lru_cache(maxsize=8)
@@ -101,6 +107,28 @@ def get_quote(token_in: str, token_out: str, fee: int, amount_in_wei: int) -> in
         raise QuoteError(f"quote reverted for {token_in}->{token_out} fee={fee}: {exc}") from exc
     except Exception as exc:  # network errors, decoding errors, etc.
         raise QuoteError(f"quote failed for {token_in}->{token_out} fee={fee}: {exc}") from exc
+
+
+def get_quote_v2(token_in: str, token_out: str, amount_in_wei: int) -> int:
+    """
+    Return the simulated output amount (in wei of token_out) for swapping
+    `amount_in_wei` of token_in -> token_out through the PancakeSwap V2
+    Router's getAmountsOut (constant-product AMM, fixed 0.25% fee already
+    reflected in the returned amount). Used for any PATH hop with
+    "dex_version": "v2".
+    """
+    router = get_router_v2()
+    path = [_checksum_or_raise("token_in", token_in), _checksum_or_raise("token_out", token_out)]
+    try:
+        amounts = router.functions.getAmountsOut(amount_in_wei, path).call()
+        return amounts[-1]
+    except ContractLogicError as exc:
+        raise QuoteError(
+            f"v2 quote reverted for {token_in}->{token_out}: {exc} "
+            f"(commonly: no direct pair, or pair has insufficient liquidity for amountIn={amount_in_wei})"
+        ) from exc
+    except Exception as exc:
+        raise QuoteError(f"v2 quote failed for {token_in}->{token_out}: {exc}") from exc
 
 
 def get_gas_price_wei() -> int:
