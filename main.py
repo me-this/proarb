@@ -22,7 +22,7 @@ import time
 import traceback
 
 import config
-from arbitrage import evaluate_opportunity
+from arbitrage import evaluate_opportunities
 from logger import log_opportunity
 from simulator import simulate_full_path
 
@@ -33,7 +33,7 @@ def _print_startup_banner():
     print("=" * 72)
     print(f"RPC:                {config.RPC_URL}")
     print(f"Path:               {' -> '.join(step['name'] for step in config.PATH)}")
-    print(f"Trade size:         {config.TRADE_SIZE_WBNB} WBNB")
+    print(f"Scan sizes:         {', '.join(str(s) for s in config.SCAN_SIZES_WBNB)} WBNB")
     print(f"Slippage buffer:    {config.SLIPPAGE_BUFFER_BPS} bps")
     print(f"Min profit to sim:  {config.MIN_PROFIT_WBNB} WBNB")
     print(f"Poll interval:      {config.POLL_INTERVAL_SECONDS}s")
@@ -53,30 +53,39 @@ def _print_startup_banner():
 
 
 def run_once() -> None:
-    opp = evaluate_opportunity()
+    opportunities = evaluate_opportunities()  # one per size in config.SCAN_SIZES_WBNB
+    any_quoted = False
 
-    if opp.error:
-        print(f"[{time.strftime('%H:%M:%S')}] quote error: {opp.error}")
-        return
+    for opp in opportunities:
+        if opp.error:
+            # Common and expected for thin pools: a larger probe size can
+            # revert (insufficient liquidity) while a smaller one succeeds.
+            # We only print it, we don't stop the scan.
+            print(f"[{time.strftime('%H:%M:%S')}] size={opp.amount_in_wbnb} quote error: {opp.error}")
+            continue
 
-    print(
-        f"[{time.strftime('%H:%M:%S')}] {opp.hop_summary()} | "
-        f"in={opp.amount_in_wbnb:.6f} WBNB out={opp.gross_amount_out_wbnb:.6f} WBNB | "
-        f"gross={opp.gross_profit_wbnb:+.8f} net={opp.net_profit_wbnb:+.8f}"
-    )
+        any_quoted = True
+        print(
+            f"[{time.strftime('%H:%M:%S')}] {opp.hop_summary()} | "
+            f"in={opp.amount_in_wbnb:.6f} WBNB out={opp.gross_amount_out_wbnb:.6f} WBNB | "
+            f"gross={opp.gross_profit_wbnb:+.8f} net={opp.net_profit_wbnb:+.8f}"
+        )
 
-    if not opp.is_gross_profitable:
-        return  # nothing to log -- no arbitrage on this pass
+        if not opp.is_gross_profitable:
+            continue  # nothing to log -- no arbitrage at this size
 
-    sim_status, sim_detail = "not_run", ""
-    if opp.is_net_profitable:
-        print(f"    -> net profit {opp.net_profit_wbnb:.8f} WBNB clears threshold, simulating execution...")
-        sim = simulate_full_path(opp)
-        sim_status, sim_detail = sim.status, sim.detail
-        print(f"    -> simulation: {sim_status} ({sim_detail})")
+        sim_status, sim_detail = "not_run", ""
+        if opp.is_net_profitable:
+            print(f"    -> net profit {opp.net_profit_wbnb:.8f} WBNB clears threshold, simulating execution...")
+            sim = simulate_full_path(opp)
+            sim_status, sim_detail = sim.status, sim.detail
+            print(f"    -> simulation: {sim_status} ({sim_detail})")
 
-    csv_path = log_opportunity(opp, simulation_status=sim_status, simulation_detail=sim_detail)
-    print(f"    -> logged to {csv_path}")
+        csv_path = log_opportunity(opp, simulation_status=sim_status, simulation_detail=sim_detail)
+        print(f"    -> logged to {csv_path}")
+
+    if not any_quoted:
+        print(f"[{time.strftime('%H:%M:%S')}] no size in SCAN_SIZES_WBNB quoted successfully this pass")
 
 
 def main() -> None:

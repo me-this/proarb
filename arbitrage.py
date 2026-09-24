@@ -62,10 +62,10 @@ def _from_wei(amount: int, decimals: int) -> float:
 
 def evaluate_opportunity(trade_size_wbnb: Optional[float] = None) -> Opportunity:
     """
-    Run one full pass of the configured path at the configured (or given)
-    trade size and return an Opportunity describing gross and net results.
-    Never raises for ordinary quote failures -- those are captured on
-    Opportunity.error so the polling loop can keep going.
+    Run one full pass of the configured path at the given trade size and
+    return an Opportunity describing gross and net results. Never raises
+    for ordinary quote failures -- those are captured on Opportunity.error
+    so the caller can keep going (e.g. try the next size in a scan).
     """
     trade_size_wbnb = trade_size_wbnb if trade_size_wbnb is not None else config.TRADE_SIZE_WBNB
     wbnb_decimals = config.TOKEN_DECIMALS["WBNB"]
@@ -143,3 +143,17 @@ def evaluate_opportunity(trade_size_wbnb: Optional[float] = None) -> Opportunity
             is_net_profitable=False,
             error=str(exc),
         )
+
+
+def evaluate_opportunities(sizes_wbnb: Optional[List[float]] = None) -> List[Opportunity]:
+    """
+    Run evaluate_opportunity() across a list of probe sizes (smallest to
+    largest, per config.SCAN_SIZES_WBNB by default) and return one
+    Opportunity per size. Thin pools often revert on larger probes long
+    before they revert on smaller ones -- scanning a range means the bot
+    still finds and logs whatever size actually fits the shallowest pool
+    on the path, instead of silently failing every pass because one fixed
+    size happened to be too big.
+    """
+    sizes_wbnb = sizes_wbnb if sizes_wbnb is not None else config.SCAN_SIZES_WBNB
+    return [evaluate_opportunity(size) for size in sizes_wbnb]

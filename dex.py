@@ -85,6 +85,19 @@ def get_quote(token_in: str, token_out: str, fee: int, amount_in_wei: int) -> in
         ).call()
         return amount_out
     except ContractLogicError as exc:
+        # QuoterV2 catches every revert from the underlying pool swap and
+        # re-throws a generic "Unexpected error" -- in practice this is
+        # almost always the swap running out of initialized ticks/liquidity
+        # for the requested amountIn, i.e. the probe size is too large for
+        # this pool. We can't recover the original reason (the quoter
+        # swallows it), so we just label it clearly rather than surface the
+        # raw ABI-encoded string.
+        msg = str(exc)
+        if "Unexpected error" in msg or "0x08c379a0" in msg:
+            raise QuoteError(
+                f"quote for {token_in}->{token_out} fee={fee} reverted (likely insufficient "
+                f"liquidity for amountIn={amount_in_wei} wei -- try a smaller probe size)"
+            ) from exc
         raise QuoteError(f"quote reverted for {token_in}->{token_out} fee={fee}: {exc}") from exc
     except Exception as exc:  # network errors, decoding errors, etc.
         raise QuoteError(f"quote failed for {token_in}->{token_out} fee={fee}: {exc}") from exc

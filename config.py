@@ -95,7 +95,16 @@ ROUTER_ADDRESS = os.getenv("ROUTER_ADDRESS", "0x1b81D678ffb9C0263b24A97847620C99
 # ---------------------------------------------------------------------------
 # Sizing & economics
 # ---------------------------------------------------------------------------
-TRADE_SIZE_WBNB = float(os.getenv("TRADE_SIZE_WBNB", "0.5"))          # probe notional
+# Thin, newly-created pools (like small-cap token pairs) can only absorb a
+# small probe before the quoter runs out of liquidity/ticks and reverts.
+# Rather than picking one fixed size and hoping it fits, the bot scans a
+# list of sizes each pass and evaluates/logs whichever ones actually quote
+# successfully. Give this as a comma-separated list, smallest to largest.
+SCAN_SIZES_WBNB = [
+    float(x) for x in os.getenv("SCAN_SIZES_WBNB", "0.001,0.005,0.01,0.05,0.1,0.5").split(",")
+    if x.strip()
+]
+TRADE_SIZE_WBNB = float(os.getenv("TRADE_SIZE_WBNB", str(SCAN_SIZES_WBNB[0])))  # single-size fallback
 SLIPPAGE_BUFFER_BPS = float(os.getenv("SLIPPAGE_BUFFER_BPS", "10"))   # 0.10% haircut
 GAS_LIMIT_ESTIMATE = int(os.getenv("GAS_LIMIT_ESTIMATE", "550000"))   # 3 swaps, generous
 GAS_PRICE_BUFFER_MULT = float(os.getenv("GAS_PRICE_BUFFER_MULT", "1.15"))  # +15% headroom

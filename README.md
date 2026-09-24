@@ -81,9 +81,11 @@ quotes, fill these into `.env` (or `config.py` directly):
   Quoter/SmartRouter on BSC mainnet; change these if your pools belong to
   a different V3-style fork
 
-Tunable economics: `TRADE_SIZE_WBNB`, `SLIPPAGE_BUFFER_BPS`,
-`GAS_LIMIT_ESTIMATE`, `GAS_PRICE_BUFFER_MULT`, `MIN_PROFIT_WBNB`,
-`POLL_INTERVAL_SECONDS`.
+Tunable economics: `SCAN_SIZES_WBNB` (comma-separated list, smallest to
+largest — the bot evaluates every size each pass, since a thin pool on
+one leg can revert on a larger probe while still fitting a smaller one),
+`SLIPPAGE_BUFFER_BPS`, `GAS_LIMIT_ESTIMATE`, `GAS_PRICE_BUFFER_MULT`,
+`MIN_PROFIT_WBNB`, `POLL_INTERVAL_SECONDS`.
 
 ## Output
 
@@ -114,6 +116,29 @@ requirements.txt
 ```
 
 ## Disclaimer
+
+## Troubleshooting
+
+**`quote reverted ... Unexpected error` / raw `0x08c379a0...` hex**
+QuoterV2 catches every revert from the underlying pool swap and re-throws
+a generic `"Unexpected error"` string, discarding the real reason. In
+practice this almost always means the probe size was too large for that
+pool's available liquidity at the current tick — small/new token pools
+(like a freshly-launched meme pair) can be a few thousand dollars deep,
+so a 0.5 WBNB probe (worth hundreds of dollars) can easily exhaust it.
+The bot now scans multiple sizes (`SCAN_SIZES_WBNB`) so a revert on the
+largest size doesn't block the smaller ones from being evaluated and
+logged. If every size in the list reverts, lower the smallest entries
+further (e.g. `0.0001,0.0005,0.001`) until you find one your shallowest
+pool can actually absorb — check each pool's liquidity on GeckoTerminal
+or DEX Screener before setting sizes.
+
+**Address checksum errors**
+`ValueError: Unknown format '0x...'` means the address is malformed —
+usually one character short or long (must be exactly 40 hex characters
+after `0x`). `dex.py`'s `_checksum_or_raise()` now catches this and tells
+you which field and how many characters it found; re-copy the address
+from a block explorer rather than retyping it.
 
 This is unaudited example software provided for a development/research
 project. It does not place trades or move funds on its own. If you
