@@ -80,6 +80,17 @@ def simulate_full_path(opp: Opportunity) -> SimulationResult:
     if not opp.hops:
         return SimulationResult(status="skipped", detail="no hops to simulate")
 
+    if opp.hops[0].dex_version != "v3":
+        # This simulator builds V3 SwapRouter (exactInputSingle) calldata;
+        # a v2 first hop would need swapExactTokensForTokens instead. Rather
+        # than silently mis-simulating, we skip and rely on the quoter-based
+        # result for this pass.
+        return SimulationResult(
+            status="skipped",
+            detail=f"first hop is dex_version={opp.hops[0].dex_version!r}; "
+                    f"full-path eth_call simulation currently only supports a v3 first hop",
+        )
+
     w3 = get_web3()
     router = w3.eth.contract(address=Web3.to_checksum_address(config.ROUTER_ADDRESS), abi=SWAP_ROUTER_ABI)
     wallet = Web3.to_checksum_address(config.WALLET_ADDRESS)

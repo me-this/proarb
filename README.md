@@ -50,6 +50,24 @@ nonce/gas management, MEV-aware submission (e.g. a private relay to avoid
 being frontrun), and much more careful testing — none of that is
 included here.
 
+## Mixed V2/V3 routing
+
+Not every hop necessarily has its best liquidity on the same DEX version.
+Each entry in `config.PATH` has a `dex_version` field (`"v3"` or `"v2"`):
+V3 hops are priced via the QuoterV2 contract as described above; V2 hops
+are priced via the PancakeSwap V2 Router's `getAmountsOut` (a
+constant-product AMM quote, with the fixed 0.25% V2 fee already reflected
+in the result). `arbitrage.py` dispatches each hop to the right one
+automatically. The included default path is `WBNB/Moolah` (V3) →
+`Moolah/USDT` (**V2** — the only pool with real liquidity for this pair)
+→ `USDT/WBNB` (V3).
+
+The full-path `eth_call` execution simulation in `simulator.py` currently
+only builds calldata for a **V3** first hop; if your path's first hop is
+V2, that simulation step is skipped and the bot falls back to the
+quoter-based numbers (gross/net profit are unaffected either way, since
+those always come from the quoter chain, not the simulator).
+
 ## Setup
 
 ```powershell
@@ -119,19 +137,27 @@ requirements.txt
 
 ## Troubleshooting
 
-**`quote reverted ... Unexpected error` / raw `0x08c379a0...` hex**
-QuoterV2 catches every revert from the underlying pool swap and re-throws
-a generic `"Unexpected error"` string, discarding the real reason. In
-practice this almost always means the probe size was too large for that
-pool's available liquidity at the current tick — small/new token pools
-(like a freshly-launched meme pair) can be a few thousand dollars deep,
-so a 0.5 WBNB probe (worth hundreds of dollars) can easily exhaust it.
-The bot now scans multiple sizes (`SCAN_SIZES_WBNB`) so a revert on the
-largest size doesn't block the smaller ones from being evaluated and
-logged. If every size in the list reverts, lower the smallest entries
-further (e.g. `0.0001,0.0005,0.001`) until you find one your shallowest
-pool can actually absorb — check each pool's liquidity on GeckoTerminal
-or DEX Screener before setting sizes.
+**`quote reverted ... Unexpected error` / raw `0x08c379a0...` hex, at EVERY probe size**
+If this happens across the entire `SCAN_SIZES_WBNB` range including your
+smallest size, it's usually not a sizing problem at all -- it means the
+specific V3 pool you configured for that hop has little or no active
+liquidity (possibly abandoned, or a stale/duplicate pool for that pair,
+with the real liquidity sitting in a *different* pool or even a different
+DEX version). Check the pool's live liquidity on GeckoTerminal or DEX
+Screener rather than assuming a search result from earlier is still
+accurate -- pools for small/new tokens can be created, drained, or
+superseded within days. The Moolah/USDT hop in this project hit exactly
+this: the V3 pool at fee=10000 had ~$1.5K liquidity and reverted at every
+size, while the real ~$148K market for that pair turned out to be a
+PancakeSwap **V2** pool instead. This project now supports mixing V2 and
+V3 hops in the same path (see `dex_version` in `config.PATH`) for exactly
+this situation.
+
+**`quote reverted ... Unexpected error`, at LARGER sizes only**
+This is the more common case: the probe size is simply too large for that
+pool's liquidity at the current tick. The bot scans multiple sizes
+(`SCAN_SIZES_WBNB`) so a revert on the largest size doesn't block smaller
+ones from being evaluated and logged.
 
 **Address checksum errors**
 `ValueError: Unknown format '0x...'` means the address is malformed —
