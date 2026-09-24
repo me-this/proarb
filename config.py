@@ -46,7 +46,7 @@ USE_STATE_OVERRIDE_SIM = _bool("USE_STATE_OVERRIDE_SIM", True)
 # Tokens (checksummed addresses) -- fill in the real ones for your path
 # ---------------------------------------------------------------------------
 TOKENS = {
-    "WBNB": os.getenv("WBNB_ADDRESS", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095"),
+    "WBNB": os.getenv("WBNB_ADDRESS", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"),
     "MOOLAH": os.getenv("MOOLAH_ADDRESS", "0xbAb528425Edb1E0E36D3719bc3307d9C8ccE8888"),
     "USDT": os.getenv("USDT_ADDRESS", "0x55d398326f99059fF775485246999027B3197955"),
 }

@@ -40,6 +40,28 @@ class QuoteError(Exception):
     """Raised when a quote could not be obtained (bad pool, no liquidity, RPC error...)."""
 
 
+def _checksum_or_raise(label: str, address: str) -> str:
+    """
+    Validate + checksum an address with a clear error message instead of
+    the raw eth_utils traceback. Catches the most common cause of this
+    failing: an address copy-pasted with a character missing or extra
+    (must be exactly 40 hex chars after the 0x).
+    """
+    if not address:
+        raise QuoteError(f"{label} address is empty; check config.py / .env")
+    hex_part = address[2:] if address.lower().startswith("0x") else address
+    if len(hex_part) != 40:
+        raise QuoteError(
+            f"{label} address '{address}' has {len(hex_part)} hex characters after "
+            f"'0x', expected 40. It was likely truncated or mistyped when copied in "
+            f"-- re-copy it from a block explorer (e.g. bscscan.com)."
+        )
+    try:
+        return Web3.to_checksum_address(address)
+    except Exception as exc:
+        raise QuoteError(f"{label} address '{address}' is not a valid address: {exc}") from exc
+
+
 def get_quote(token_in: str, token_out: str, fee: int, amount_in_wei: int) -> int:
     """
     Return the simulated output amount (in wei of token_out) for swapping
@@ -49,8 +71,8 @@ def get_quote(token_in: str, token_out: str, fee: int, amount_in_wei: int) -> in
     """
     quoter = get_quoter()
     params = {
-        "tokenIn": Web3.to_checksum_address(token_in),
-        "tokenOut": Web3.to_checksum_address(token_out),
+        "tokenIn": _checksum_or_raise("token_in", token_in),
+        "tokenOut": _checksum_or_raise("token_out", token_out),
         "amountIn": amount_in_wei,
         "fee": fee,
         "sqrtPriceLimitX96": 0,
